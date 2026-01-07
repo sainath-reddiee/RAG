@@ -1,0 +1,12 @@
+# Streamlit for UI
+streamlit>=1.31.0
+
+# Snowflake connectivity
+snowflake-connector-python>=3.6.0
+snowflake-snowpark-python>=1.11.0
+
+# Configuration management
+pyyaml>=6.0.1
+
+# Utilities
+python-dotenv>=1.0.0

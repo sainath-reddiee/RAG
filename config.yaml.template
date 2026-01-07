@@ -1,0 +1,45 @@
+# Snowflake Configuration Template
+# Copy this file to config.yaml and fill in your credentials
+# NEVER commit config.yaml to version control
+
+snowflake:
+  account: "your-account.snowflakecomputing.com"  # e.g., abc12345.us-east-1
+  user: "YOUR_USERNAME"
+  password: "YOUR_PASSWORD"
+  warehouse: "COMPUTE_WH"  # e.g., COMPUTE_WH
+  database: "RAG_DB"           # Database for RAG application
+  schema: "PUBLIC"             # Schema name
+  role: "ACCOUNTADMIN"            # e.g., ACCOUNTADMIN (optional)
+
+# Application Settings
+app:
+  # Retrieval configuration (Cortex Search Service)
+  retrieval:
+    top_k: 5                  # Number of chunks to retrieve
+    
+  # Generation configuration (Cortex Complete)
+  generation:
+    model: "mistral-large2"   # Cortex LLM model
+    max_tokens: 1024           # Maximum tokens in response
+    temperature: 0.1          # Lower = more deterministic
+    
+  # Upload limits
+  upload:
+    max_file_size_mb: 2      # Maximum file size in MB
+    allowed_extensions: [".txt"]  # Allowed file extensions
+    
+  # Retry configuration
+  retry:
+    max_attempts: 3           # Maximum retry attempts
+    backoff_factor: 2         # Exponential backoff multiplier
+    initial_delay: 1          # Initial delay in seconds
+    
+  # Logging
+  logging:
+    level: "INFO"             # DEBUG, INFO, WARNING, ERROR
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Notes:
+# - Chunking is handled by SPLIT_TEXT_RECURSIVE_CHARACTER (in SQL)
+# - Embeddings are handled by Cortex Search Service (automatic)
+# - No chunking or embedding config needed!
