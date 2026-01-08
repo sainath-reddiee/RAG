@@ -338,6 +338,53 @@ AS (SELECT CHUNK_ID, CHUNK_TEXT, DOCUMENT_ID, FILENAME, CHUNK_INDEX FROM DOCUMEN
 - [COMPLETE Function](https://docs.snowflake.com/en/sql-reference/functions/complete)
 - [Cortex LLM Functions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions)
 
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#29B5E8', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#f4f4f4'}}}%%
+graph LR
+    subgraph Client ["💻 Client Layer"]
+        User[User Persona]
+    end
+
+    subgraph App ["📱 Streamlit App (Snowpark Container / Local)"]
+        UI[Streamlit UI]
+        Chunker[Text Chunker Python]
+    end
+
+    subgraph Snowflake ["❄️ Snowflake Data Cloud"]
+        subgraph Compute ["Cortex AI Compute"]
+            EmbedModel[Cortex Embedding Model\ne.g., snowflake-arctic-embed-m]
+            LLM[Cortex LLM\ne.g., llama3-70b, mistral-large]
+        end
+
+        subgraph Storage ["Data Storage"]
+            VectorTable[(Standard Snowflake Table\nVARCHAR Chunk | VECTOR Column)]
+        end
+
+        subgraph SQL ["SQL Execution"]
+            VectorSearch[SQL Vector Search\nVECTOR_COSINE_SIMILARITY]
+        end
+    end
+
+    %% Ingestion Flow
+    User --1. Upload Meeting Notes (PDF/Txt)--> UI
+    UI --> Chunker
+    Chunker --"2. Send Text Chunks"--> EmbedModel
+    EmbedModel --"3. Return Vectors"--> UI
+    UI --"4. INSERT Chunks & Vectors"--> VectorTable
+
+    %% Retrieval Flow
+    User --"5. Ask Question"--> UI
+    UI --"6. Embed Question"--> EmbedModel
+    EmbedModel --"7. Return Question Vector"--> UI
+    UI --"8. Run Similarity Query"--> VectorSearch
+    VectorTable --Scan--> VectorSearch
+    VectorSearch --"9. Top-K Relevant Chunks"--> UI
+    UI --"10. Prompt + Context + Question"--> LLM
+    LLM --"11. Grounded Answer"--> UI
+    UI --Display Answer--> User
+
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style Snowflake fill:#f0f8ff,stroke:#29B5E8,stroke-width:3px,color:#000
+    style VectorTable fill:#fff,stroke:#29B5E8,stroke-dasharray: 5 5
 ---
 
 ## ✨ Key Takeaways
