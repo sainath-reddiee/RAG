@@ -5,7 +5,7 @@
 snowflake:
   account: "BPXADHC-GD29924"  # e.g., abc12345.us-east-1
   user: "SAINATH"
-  password: "Sainath@reddy098"
+  password: "abc"
   warehouse: "COMPUTE_WH"  # e.g., COMPUTE_WH
   database: "RAG_DB"           # Database for RAG application
   schema: "PUBLIC"             # Schema name
