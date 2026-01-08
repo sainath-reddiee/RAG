@@ -59,7 +59,7 @@ def process_document(filename: str, content: str) -> Tuple[bool, str, str]:
             CONTENT,
             PROCESSING_STATUS
         )
-        VALUES (?, ?, ?, ?, 'COMPLETED')
+        VALUES (%s, %s, %s, %s, 'COMPLETED')
         """
         
         params = [
@@ -69,15 +69,24 @@ def process_document(filename: str, content: str) -> Tuple[bool, str, str]:
             content
         ]
         
-        client.execute_query(query, params, fetch=False)
+        # Execute with proper parameter binding (not string formatting)
+        try:
+            client.execute_query(query, params, fetch=False)
+        except Exception as e:
+            logger.error(f"SQL execution error: {e}")
+            logger.error(f"Query: {query}")
+            logger.error(f"Params types: {[type(p).__name__ for p in params]}")
+            raise
         
         logger.info(f"Document {document_id} uploaded successfully")
         logger.info("Cortex Search Service will automatically chunk and index this document")
         
-        return True, f"Document uploaded successfully", document_id
+        return True, "Document uploaded successfully", document_id
         
     except Exception as e:
         logger.error(f"Error processing document: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False, f"Error: {str(e)}", ""
 
 

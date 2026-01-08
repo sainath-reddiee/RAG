@@ -20,7 +20,7 @@ app:
   # Generation configuration (Cortex Complete)
   generation:
     model: "mistral-large2"   # Cortex LLM model
-    max_tokens: 1024           # Maximum tokens in response
+    max_tokens: 2048           # Maximum tokens in response (increased for comprehensive answers)
     temperature: 0.1          # Lower = more deterministic
     
   # Upload limits

@@ -7,8 +7,8 @@ Purpose:
 - Hybrid search (vector + keyword + reranking)
 
 Design:
-- Use MEETING_NOTES_SEARCH!SEARCH() for retrieval
-- Use SNOWFLAKE.CORTEX.COMPLETE() for generation
+- Use SNOWFLAKE.CORTEX.SEARCH_PREVIEW() for retrieval
+- Use SNOWFLAKE.CORTEX.AI_COMPLETE() for generation (latest version)
 - Simple and efficient
 """
 
@@ -106,40 +106,69 @@ class RAGPipeline:
             List of search results with chunks and metadata
         """
         try:
-            # Use Cortex Search Service
-            # Syntax: MEETING_NOTES_SEARCH!SEARCH(query, top_k)
+            # Use Cortex Search Service with SEARCH_PREVIEW function
+            # Syntax: SNOWFLAKE.CORTEX.SEARCH_PREVIEW('service_name', 'json_params')
             if document_id:
                 # Search with document filter
-                query = """
-                SELECT 
-                    CHUNK_TEXT,
-                    DOCUMENT_ID,
-                    FILENAME,
-                    CHUNK_INDEX
-                FROM TABLE(
-                    MEETING_NOTES_SEARCH!SEARCH(?, ?)
-                )
-                WHERE DOCUMENT_ID = ?
-                """
-                params = [question, self.top_k, document_id]
+                query_params = {
+                    "query": question,
+                    "columns": ["CHUNK_TEXT", "DOCUMENT_ID", "FILENAME", "CHUNK_INDEX"],
+                    "filter": {"@eq": {"DOCUMENT_ID": document_id}},
+                    "limit": self.top_k
+                }
             else:
                 # Search across all documents
-                query = """
-                SELECT 
-                    CHUNK_TEXT,
-                    DOCUMENT_ID,
-                    FILENAME,
-                    CHUNK_INDEX
-                FROM TABLE(
-                    MEETING_NOTES_SEARCH!SEARCH(?, ?)
-                )
-                """
-                params = [question, self.top_k]
+                query_params = {
+                    "query": question,
+                    "columns": ["CHUNK_TEXT", "DOCUMENT_ID", "FILENAME", "CHUNK_INDEX"],
+                    "limit": self.top_k
+                }
             
-            results = self.client.execute_query(query, params, fetch=True)
+            # Convert to JSON string
+            import json
+            query_params_json = json.dumps(query_params)
             
-            logger.info(f"Cortex Search Service returned {len(results)} chunks")
-            return results
+            query = """
+            SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+                'MEETING_NOTES_SEARCH',
+                %s
+            ) AS search_results
+            """
+            
+            params = [query_params_json]
+            
+            logger.info(f"Executing search with params: {query_params}")
+            result = self.client.execute_query(query, params, fetch=True)
+            
+            if result and len(result) > 0:
+                # The result is a single row with SEARCH_RESULTS column containing JSON
+                search_results_json = result[0].get('SEARCH_RESULTS')
+                
+                if search_results_json:
+                    logger.info(f"Raw search results: {search_results_json[:500]}...")
+                    
+                    # Parse JSON results
+                    if isinstance(search_results_json, str):
+                        search_data = json.loads(search_results_json)
+                    else:
+                        search_data = search_results_json
+                    
+                    results = search_data.get('results', [])
+                    logger.info(f"Cortex Search Service returned {len(results)} chunks")
+                    
+                    # Normalize column names to uppercase (Snowflake convention)
+                    normalized_results = []
+                    for r in results:
+                        normalized = {k.upper(): v for k, v in r.items()}
+                        normalized_results.append(normalized)
+                    
+                    return normalized_results
+                else:
+                    logger.warning("SEARCH_RESULTS column is empty")
+                    return []
+            else:
+                logger.warning("No results from query execution")
+                return []
             
         except Exception as e:
             logger.error(f"Search error: {e}")
@@ -163,15 +192,23 @@ class RAGPipeline:
         Returns:
             Formatted prompt
         """
-        # System instruction
+        # System instruction - Clean markdown output
         system_instruction = """You are a helpful assistant that answers questions based on the provided context.
 
 IMPORTANT RULES:
-1. Only use information from the provided context to answer questions
-2. If the context doesn't contain enough information, say "I don't have enough information to answer this question"
-3. Do not make up or infer information that isn't explicitly stated in the context
-4. Be concise and direct in your answers
-5. If you quote from the context, indicate which document it's from"""
+1. Provide COMPREHENSIVE answers using ALL relevant information from the context
+2. Structure your answer with clear paragraphs and bullet points
+3. Use simple, readable formatting - NO JSON, NO code blocks
+4. Always cite sources at the end like: (Source: filename, Chunk #number)
+5. If the context doesn't contain enough information, say "I don't have enough information to answer this question"
+6. Do NOT make up information that isn't in the context
+7. Be thorough and detailed
+
+FORMATTING:
+- Write in clear, natural language
+- Use bullet points for lists
+- Keep it readable and well-organized
+- Add citations at the end of relevant points"""
         
         # Format context
         context_parts = []
@@ -207,15 +244,20 @@ ANSWER:"""
             Generated answer
         """
         try:
-            # Use Cortex Complete
+            # Use Cortex AI_COMPLETE (latest version)
+            # Must use named parameters: model, prompt, model_parameters
             query = """
-            SELECT SNOWFLAKE.CORTEX.COMPLETE(?, ?, ?) AS answer
+            SELECT AI_COMPLETE(
+                model => %s,
+                prompt => %s,
+                model_parameters => OBJECT_CONSTRUCT(
+                    'max_tokens', %s,
+                    'temperature', %s
+                )
+            ) AS answer
             """
             
-            # Options as JSON string
-            options = f'{{"max_tokens": {self.max_tokens}, "temperature": {self.temperature}}}'
-            
-            params = [self.llm_model, prompt, options]
+            params = [self.llm_model, prompt, self.max_tokens, self.temperature]
             
             result = self.client.execute_query(query, params, fetch=True)
             

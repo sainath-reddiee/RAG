@@ -4,7 +4,12 @@
 -- Purpose: Create simplified schema using Snowflake Cortex Search Service
 -- This eliminates manual chunking, embedding, and vector search
 -- ============================================================================
+-- PREREQUISITE: Run 00_setup_snowflake.sql first!
+-- ============================================================================
 
+-- Use the RAG role and warehouse
+USE ROLE RAG_ROLE;
+USE WAREHOUSE RAG_WH;
 USE DATABASE RAG_DB;
 USE SCHEMA PUBLIC;
 
@@ -43,22 +48,22 @@ SELECT
     d.DOCUMENT_ID,
     d.FILENAME,
     d.UPLOAD_TIME,
-    -- Generate unique chunk ID
-    UUID_STRING() AS CHUNK_ID,
-    -- Chunk metadata from Cortex function
-    c.INDEX AS CHUNK_INDEX,
-    c.VALUE AS CHUNK_TEXT,
-    c.START_OFFSET,
-    c.END_OFFSET,
-    LENGTH(c.VALUE) AS CHUNK_SIZE
+    -- Generate deterministic chunk ID (required for Cortex Search Service)
+    HASH(d.DOCUMENT_ID, c.index) AS CHUNK_ID,
+    -- Chunk metadata from Cortex function via FLATTEN
+    c.index AS CHUNK_INDEX,
+    c.value::STRING AS CHUNK_TEXT,  -- Cast VARIANT to STRING
+    c.value:start_offset::INT AS START_OFFSET,
+    c.value:end_offset::INT AS END_OFFSET,
+    LENGTH(c.value::STRING) AS CHUNK_SIZE
 FROM DOCUMENTS d,
--- Use Cortex function to chunk text
-LATERAL SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER(
+-- Use Cortex function with LATERAL FLATTEN
+LATERAL FLATTEN(input => SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER(
     d.CONTENT,
-    1000,  -- chunk_size: 1000 characters
-    200,   -- chunk_overlap: 200 characters
-    ARRAY_CONSTRUCT('\n\n', '\n', '. ', ' ')  -- separators: paragraph, line, sentence, word
-) c
+    'none',
+    1000,
+    200
+)) c
 WHERE d.PROCESSING_STATUS = 'COMPLETED';
 
 COMMENT ON VIEW DOCUMENT_CHUNKS IS 'Dynamically chunks documents using SPLIT_TEXT_RECURSIVE_CHARACTER';

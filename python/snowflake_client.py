@@ -115,7 +115,7 @@ class SnowflakeClient:
     def execute_query(
         self, 
         query: str, 
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[list] = None,
         fetch: bool = True
     ) -> Optional[List[Dict[str, Any]]]:
         """
@@ -123,7 +123,7 @@ class SnowflakeClient:
         
         Args:
             query: SQL query to execute
-            params: Query parameters (for parameterized queries)
+            params: Query parameters as list (for %s placeholders)
             fetch: Whether to fetch results (False for INSERT/UPDATE/DELETE)
             
         Returns:
@@ -141,7 +141,8 @@ class SnowflakeClient:
                 cursor = conn.cursor(DictCursor)
                 
                 if params:
-                    cursor.execute(query, params)
+                    # Use tuple for parameter binding
+                    cursor.execute(query, tuple(params))
                 else:
                     cursor.execute(query)
                 

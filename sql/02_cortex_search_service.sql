@@ -2,11 +2,25 @@
 -- RAG Application - Cortex Search Service Creation
 -- ============================================================================
 -- Purpose: Create and configure Cortex Search Service for RAG
--- Run this AFTER 01_cortex_schema.sql
+-- PREREQUISITE: Run 00_setup_snowflake.sql and 01_cortex_schema.sql first!
 -- ============================================================================
 
+-- Use the RAG role and warehouse
+USE ROLE RAG_ROLE;
+USE WAREHOUSE RAG_WH;
 USE DATABASE RAG_DB;
 USE SCHEMA PUBLIC;
+
+-- ============================================================================
+-- Enable Cross-Region Inference (if needed)
+-- ============================================================================
+-- Check current cross-region setting
+SHOW PARAMETERS LIKE 'CORTEX_ENABLED_CROSS_REGION' IN ACCOUNT;
+
+-- If you need to enable cross-region inference (requires ACCOUNTADMIN):
+-- ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';
+
+-- Note: Cross-region inference may have higher latency and costs
 
 -- ============================================================================
 -- Create Cortex Search Service
@@ -20,7 +34,7 @@ USE SCHEMA PUBLIC;
 CREATE CORTEX SEARCH SERVICE IF NOT EXISTS MEETING_NOTES_SEARCH
 ON CHUNK_TEXT  -- Column to embed and search
 ATTRIBUTES DOCUMENT_ID, FILENAME, CHUNK_INDEX, UPLOAD_TIME  -- Metadata to return
-WAREHOUSE = COMPUTE_WH  -- Warehouse for search queries
+WAREHOUSE = RAG_WH  -- Warehouse for search queries
 TARGET_LAG = '1 minute'  -- Refresh frequency (how often to update index)
 AS (
     SELECT 
@@ -40,8 +54,8 @@ AS (
 -- Show all Cortex Search Services
 SHOW CORTEX SEARCH SERVICES;
 
--- Get detailed status
-SELECT SYSTEM$GET_CORTEX_SEARCH_SERVICE_STATUS('MEETING_NOTES_SEARCH');
+-- Describe the search service
+DESC CORTEX SEARCH SERVICE MEETING_NOTES_SEARCH;
 
 -- ============================================================================
 -- Test Search Service (after uploading documents)
@@ -50,24 +64,28 @@ SELECT SYSTEM$GET_CORTEX_SEARCH_SERVICE_STATUS('MEETING_NOTES_SEARCH');
 -- Basic search test
 -- Returns top 5 most relevant chunks
 /*
-SELECT * FROM TABLE(
-    MEETING_NOTES_SEARCH!SEARCH(
-        'What were the action items?',  -- query
-        5  -- top_k (number of results)
-    )
-);
+SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+    'MEETING_NOTES_SEARCH',
+    '{
+        "query": "What were the action items?",
+        "columns": ["CHUNK_TEXT", "DOCUMENT_ID", "FILENAME", "CHUNK_INDEX"],
+        "limit": 5
+    }'
+) AS search_results;
 */
 
 -- Search with filters
 -- Filter by specific document
 /*
-SELECT * FROM TABLE(
-    MEETING_NOTES_SEARCH!SEARCH(
-        'What were the action items?',
-        5
-    )
-)
-WHERE DOCUMENT_ID = 'your-document-id-here';
+SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+    'MEETING_NOTES_SEARCH',
+    '{
+        "query": "What were the action items?",
+        "columns": ["CHUNK_TEXT", "DOCUMENT_ID", "FILENAME"],
+        "filter": {"@eq": {"DOCUMENT_ID": "your-document-id-here"}},
+        "limit": 5
+    }'
+) AS search_results;
 */
 
 -- ============================================================================
@@ -108,10 +126,9 @@ WHERE DOCUMENT_ID = 'your-document-id-here';
 --    - Balance between freshness and cost
 --
 -- 5. Search Syntax:
---    MEETING_NOTES_SEARCH!SEARCH(query, top_k)
---    - query: Natural language search query
---    - top_k: Number of results to return
---    - Returns: Ranked results with metadata
+--    SNOWFLAKE.CORTEX.SEARCH_PREVIEW('service_name', 'json_params')
+--    - json_params: JSON object with query, columns, filter, limit
+--    - Returns: JSON with ranked results and metadata
 --
 -- 6. Hybrid Search:
 --    - Combines vector similarity (semantic)
@@ -126,7 +143,7 @@ WHERE DOCUMENT_ID = 'your-document-id-here';
 --    - More cost-effective than manual vector search at scale
 --
 -- 8. Monitoring:
---    - Use SYSTEM$GET_CORTEX_SEARCH_SERVICE_STATUS for health
---    - Check SHOW CORTEX SEARCH SERVICES for overview
+--    - Use SHOW CORTEX SEARCH SERVICES for overview
+--    - Use DESC CORTEX SEARCH SERVICE for details
 --    - Monitor warehouse usage for cost tracking
 -- ============================================================================

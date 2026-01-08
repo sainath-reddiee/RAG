@@ -167,17 +167,34 @@ SELECT * FROM DOCUMENT_CHUNKS WHERE DOCUMENT_ID = 'uuid';
 
 **What Happens:**
 ```sql
--- Step 1: Search using Cortex Search Service
-SELECT * FROM TABLE(
-    MEETING_NOTES_SEARCH!SEARCH('What were the action items?', 5)
-);
--- Returns top 5 chunks via hybrid search (vector + keyword + reranking)
+-- Query the search service
+SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+    'MEETING_NOTES_SEARCH',
+    '{
+        "query": "What were the action items?",
+        "columns": ["CHUNK_TEXT", "DOCUMENT_ID", "FILENAME", "CHUNK_INDEX"],
+        "limit": 5
+    }'
+) AS search_results;
 
--- Step 2: Generate answer using Cortex Complete
-SELECT SNOWFLAKE.CORTEX.COMPLETE(
-    'mistral-large2',
-    'Context: [chunks]\n\nQuestion: What were the action items?\n\nAnswer:',
-    {'max_tokens': 512, 'temperature': 0.1}
+-- With filters
+SELECT SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+    'MEETING_NOTES_SEARCH',
+    '{
+        "query": "action items",
+        "filter": {"@eq": {"DOCUMENT_ID": "doc-123"}},
+        "limit": 3
+    }'
+) AS search_results;
+```-- Returns top 5 chunks via hybrid search (vector + keyword + reranking)
+-- Step 2: Generate answer using Cortex AI_COMPLETE (latest version)
+SELECT SNOWFLAKE.CORTEX.AI_COMPLETE(
+    model => 'mistral-large2',
+    prompt => 'Context: [chunks]\n\nQuestion: What were the action items?\n\nAnswer:',
+    model_parameters => {
+        'max_tokens': 512,
+        'temperature': 0.1
+    }
 ) AS answer;
 ```
 
