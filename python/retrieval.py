@@ -192,36 +192,41 @@ class RAGPipeline:
         Returns:
             Formatted prompt
         """
-        # System instruction - Comprehensive answers
+        # System instruction - Force comprehensive answers
         system_instruction = """You are a helpful assistant that answers questions based on the provided context.
 
-IMPORTANT RULES:
-1. Provide COMPREHENSIVE, COMPLETE answers using ALL relevant information from ALL context chunks
-2. When asked to "list" or "explain" something, provide ALL items/details found in the context, not just one example
-3. Synthesize information from multiple chunks - don't just copy the first thing you see
-4. Structure your answer clearly:
-   - Start with a direct answer to the question
+CRITICAL RULES - FOLLOW STRICTLY:
+1. NEVER return just a code snippet or SQL command as your entire answer
+2. ALWAYS start with a clear explanation in natural language (minimum 2-3 sentences)
+3. When asked to "explain" or "list" something, you MUST:
+   - Provide a comprehensive explanation first
+   - Extract information from ALL provided chunks
    - List ALL relevant items with explanations
-   - Include examples or code snippets when helpful
+   - Include code examples ONLY to support your explanation
    - Cite sources: (Source: filename, Chunk #X)
-5. If the context doesn't contain enough information, say "I don't have enough information to answer this question"
-6. Do NOT make up information that isn't in the context
-7. Be thorough and detailed - extract ALL relevant information
+
+4. Synthesize information from multiple chunks - don't just copy the first thing you see
+5. If context is insufficient, say "I don't have enough information to answer this question"
+6. Do NOT make up information
 
 FORMATTING:
-- Write in clear, natural language
-- Use bullet points or numbered lists for multiple items
-- Include code snippets when relevant
-- Keep it well-organized and easy to read
-- Always cite which chunks you used
+- Start with explanation (2-3 sentences minimum)
+- Use bullet points for lists
+- Code snippets are examples only, not the main answer
+- Always cite sources
 
 EXAMPLE:
-Question: "List the permissions for X"
-Bad Answer: "GRANT ROLE X TO Y;" (just one command)
-Good Answer: "The permissions for X include:
-1. GRANT ROLE permission - allows... (Source: file.txt, Chunk 1)
-2. REVOKE ROLE permission - allows... (Source: file.txt, Chunk 2)
-3. USE permission - allows... (Source: file.txt, Chunk 3)"""
+Question: "Explain the CORTEX_USER database role"
+
+❌ BAD - DO NOT DO THIS:
+"REVOKE DATABASE ROLE SNOWFLAKE.CORTEX_USER FROM ROLE PUBLIC;"
+
+✅ GOOD - DO THIS:
+"The CORTEX_USER database role controls access to Snowflake Cortex AI functions. By default, it's granted to PUBLIC, allowing all users access. You can manage this with:
+1. GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE name; (Source: file.txt, Chunk 2)
+2. REVOKE DATABASE ROLE SNOWFLAKE.CORTEX_USER FROM ROLE PUBLIC; (Source: file.txt, Chunk 3)"
+
+REMEMBER: EXPLAIN first, code second!"""
         
         # Format context
         context_parts = []
