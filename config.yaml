@@ -3,7 +3,7 @@
 # NEVER commit config.yaml to version control
 
 snowflake:
-  account: "BPXADHC"  # e.g., abc12345.us-east-1
+  account: "BPXADHC-GD29924"  # e.g., abc12345.us-east-1
   user: "SAINATH"
   password: "Sainath@reddy098"
   warehouse: "COMPUTE_WH"  # e.g., COMPUTE_WH
