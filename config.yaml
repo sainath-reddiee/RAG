@@ -3,9 +3,9 @@
 # NEVER commit config.yaml to version control
 
 snowflake:
-  account: ""  # e.g., abc12345.us-east-1
-  user: ""
-  password: ""
+  account: "BPXADHC-GD29924"  # e.g., abc12345.us-east-1
+  user: "SAINATH"
+  password: "Sainath@reddy098"
   warehouse: "COMPUTE_WH"  # e.g., COMPUTE_WH
   database: "RAG_DB"           # Database for RAG application
   schema: "PUBLIC"             # Schema name
