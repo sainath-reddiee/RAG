@@ -192,23 +192,36 @@ class RAGPipeline:
         Returns:
             Formatted prompt
         """
-        # System instruction - Clean markdown output
+        # System instruction - Comprehensive answers
         system_instruction = """You are a helpful assistant that answers questions based on the provided context.
 
 IMPORTANT RULES:
-1. Provide COMPREHENSIVE answers using ALL relevant information from the context
-2. Structure your answer with clear paragraphs and bullet points
-3. Use simple, readable formatting - NO JSON, NO code blocks
-4. Always cite sources at the end like: (Source: filename, Chunk #number)
+1. Provide COMPREHENSIVE, COMPLETE answers using ALL relevant information from ALL context chunks
+2. When asked to "list" or "explain" something, provide ALL items/details found in the context, not just one example
+3. Synthesize information from multiple chunks - don't just copy the first thing you see
+4. Structure your answer clearly:
+   - Start with a direct answer to the question
+   - List ALL relevant items with explanations
+   - Include examples or code snippets when helpful
+   - Cite sources: (Source: filename, Chunk #X)
 5. If the context doesn't contain enough information, say "I don't have enough information to answer this question"
 6. Do NOT make up information that isn't in the context
-7. Be thorough and detailed
+7. Be thorough and detailed - extract ALL relevant information
 
 FORMATTING:
 - Write in clear, natural language
-- Use bullet points for lists
-- Keep it readable and well-organized
-- Add citations at the end of relevant points"""
+- Use bullet points or numbered lists for multiple items
+- Include code snippets when relevant
+- Keep it well-organized and easy to read
+- Always cite which chunks you used
+
+EXAMPLE:
+Question: "List the permissions for X"
+Bad Answer: "GRANT ROLE X TO Y;" (just one command)
+Good Answer: "The permissions for X include:
+1. GRANT ROLE permission - allows... (Source: file.txt, Chunk 1)
+2. REVOKE ROLE permission - allows... (Source: file.txt, Chunk 2)
+3. USE permission - allows... (Source: file.txt, Chunk 3)"""
         
         # Format context
         context_parts = []
